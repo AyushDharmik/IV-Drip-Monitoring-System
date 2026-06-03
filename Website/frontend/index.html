@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MediFlow — Login</title>
+  <link rel="stylesheet" href="css/main.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    body { min-height: 100vh; display: flex; overflow: hidden; margin: 0; padding: 0; background: var(--bg); }
+    .bg-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(29,110,245,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(29,110,245,.03) 1px, transparent 1px); background-size: 50px 50px; z-index: 1; pointer-events: none; }
+    .bg-orb { position: absolute; width: 800px; height: 800px; border-radius: 50%; background: radial-gradient(circle, rgba(14, 165, 160, 0.15) 0%, transparent 60%); top: -300px; left: -200px; animation: orbMove 10s ease-in-out infinite alternate; z-index: 1; pointer-events: none; }
+    @keyframes orbMove { to { transform: translate(200px, 150px) scale(1.1); } }
+    
+    .login-wrap { position: relative; z-index: 2; display: flex; width: 100vw; height: 100vh; overflow: hidden; }
+    
+    /* Left brand split panel */
+    .brand-panel { 
+      flex: 1.25; 
+      background: linear-gradient(135deg, #060b19 0%, #0f2c73 50%, #0ea5a0 100%);
+      background-size: 200% 200%;
+      animation: gradientMove 15s ease infinite;
+      padding: 60px 80px; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: space-between; 
+      color: #fff; 
+      position: relative; 
+      overflow: hidden; 
+    }
+    @keyframes gradientMove {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    /* Animated wave pattern for premium aesthetic */
+    .brand-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 1440 320" xmlns="http://www.w3.org/2000/svg"><path fill="rgba(255,255,255,0.03)" d="M0,192L60,186.7C120,181,240,171,360,181.3C480,192,600,224,720,213.3C840,203,960,149,1080,138.7C1200,128,1320,160,1380,176L1440,192L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z"></path></svg>');
+      background-size: cover;
+      background-position: bottom;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .brand-logo { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; z-index: 2; }
+    .brand-logo .logo-icon { width: 54px; height: 54px; background: rgba(255, 255, 255, 0.1); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .brand-logo span { font-family: 'Space Grotesk', sans-serif; font-size: 1.9rem; font-weight: 700; letter-spacing: -0.5px; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+    
+    .brand-content { max-width: 600px; z-index: 2; margin: auto 0; }
+    .brand-panel h1 { font-size: 3.4rem; font-weight: 800; line-height: 1.1; margin-bottom: 20px; letter-spacing: -1.5px; background: linear-gradient(to right, #ffffff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .brand-panel p { font-size: 1.15rem; color: #cbd5e1; line-height: 1.7; margin-bottom: 40px; font-weight: 300; }
+    
+    .feature-list { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .feature-item { display: flex; align-items: center; gap: 14px; font-size: 0.95rem; font-weight: 500; background: rgba(255, 255, 255, 0.05); padding: 16px 20px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); transition: all 0.3s ease; cursor: default; }
+    .feature-item:hover { transform: translateY(-3px); background: rgba(255, 255, 255, 0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.15); border-color: rgba(255, 255, 255, 0.2); }
+    .feature-item i { color: #34d399; font-size: 1.3rem; background: rgba(52, 211, 153, 0.15); padding: 8px; border-radius: 8px; }
+    
+    .brand-footer { z-index: 2; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255, 255, 255, 0.15); padding-top: 28px; font-size: 0.85rem; color: #94a3b8; }
+    .brand-stats { display: flex; gap: 32px; }
+    .stat-pill { display: flex; flex-direction: column; gap: 4px; }
+    .stat-val { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.2rem; color: #fff; letter-spacing: -0.5px; }
+
+    /* Right form split panel */
+    .form-panel { 
+      flex: 1; 
+      background: var(--card); 
+      padding: 60px 80px; 
+      display: flex; 
+      flex-direction: column;
+      justify-content: center;
+      align-items: center; 
+      z-index: 2;
+      border-left: 1px solid var(--border);
+      position: relative;
+    }
+    .form-card { width: 100%; max-width: 380px; }
+    .form-card h2 { font-size: 1.8rem; font-weight: 700; color: var(--text); margin-bottom: 6px; letter-spacing: -0.5px; }
+    .form-card > p { color: var(--muted); font-size: .92rem; margin-bottom: 28px; }
+    
+    /* Role tabs */
+    .role-tabs { display: flex; gap: 6px; background: var(--surface); padding: 5px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border); }
+    .role-tab { flex: 1; padding: 10px 14px; border: none; background: transparent; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: .88rem; font-weight: 600; color: var(--muted); cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .role-tab.active { background: var(--card); color: var(--blue); box-shadow: var(--shadow); border: 1.5px solid var(--border); }
+    
+    /* Inputs */
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: .8rem; font-weight: 700; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .input-wrap { position: relative; display: flex; align-items: center; }
+    .input-wrap i:first-child { position: absolute; left: 14px; color: var(--muted); font-size: .95rem; }
+    .input-wrap input { width: 100%; padding: 12px 42px; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: .92rem; color: var(--text); background: var(--surface); outline: none; transition: all .2s; }
+    .input-wrap input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgba(29,110,245,.1); background: var(--card); }
+    .eye-btn { position: absolute; right: 14px; border: none; background: none; color: var(--muted); cursor: pointer; font-size: 1rem; }
+    
+    /* Error display */
+    .login-error { background: #fef2f2; border: 1.5px solid #fca5a5; color: #dc2626; padding: 12px 14px; border-radius: 10px; font-size: .84rem; margin-bottom: 18px; display: none; align-items: center; gap: 10px; }
+    
+    /* Button */
+    .login-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--blue), var(--blue-dk)); color: #fff; border: none; border-radius: 10px; font-family: 'Space Grotesk', sans-serif; font-size: 1.05rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all .2s; box-shadow: 0 4px 20px rgba(29,110,245,.25); margin-top: 8px; }
+    .login-btn:hover { transform: translateY(-1.5px); box-shadow: 0 6px 28px rgba(29,110,245,.35); }
+    .login-btn:disabled { opacity: .7; cursor: not-allowed; transform: none; }
+    
+    /* Demo credentials */
+    .demo-box { margin-top: 24px; padding: 14px; background: rgba(29,110,245,.04); border: 1.5px solid rgba(29,110,245,.12); border-radius: 12px; font-size: .82rem; color: var(--text2); }
+    .demo-box p { margin-bottom: 4px; }
+    .demo-box strong { color: var(--text); }
+    code { background: rgba(29,110,245,.08); padding: 2px 6px; border-radius: 5px; font-size: .78rem; color: var(--blue-dk); font-weight: 600; font-family: monospace; }
+
+    /* Theme toggle on login */
+    .login-theme-toggle { position: absolute; top: 24px; right: 24px; }
+    .btn-login-theme { width: 38px; height: 38px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--card); color: var(--text2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s; }
+    .btn-login-theme:hover { background: var(--surface); color: var(--text); }
+
+    /* Responsive grid styles */
+    @media(max-width: 990px) {
+      .brand-panel { display: none; }
+      .form-panel { padding: 40px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-orb"></div>
+
+  <div class="login-wrap">
+    <!-- Left Split: Branding -->
+    <div class="brand-panel">
+      <div class="brand-logo">
+        <div class="logo-icon"><i class="fa-solid fa-droplet"></i></div>
+        <span>MediFlow</span>
+      </div>
+      
+      <div class="brand-content">
+        <h1>Smart IV Drip<br/>Monitoring System</h1>
+        <p>A premium web platform enabling real-time ICU ward oversight, predictive telemetry, and secure emergency alert coordination.</p>
+        
+        <div class="feature-list">
+          <div class="feature-item"><i class="fa-solid fa-chart-line"></i> Live Drip Rate Analytics</div>
+          <div class="feature-item"><i class="fa-solid fa-bell"></i> Instant Predictive Alarms</div>
+          <div class="feature-item"><i class="fa-solid fa-bed-pulse"></i> Multi-Patient ICU Console</div>
+          <div class="feature-item"><i class="fa-solid fa-shield-halved"></i> Enterprise Security</div>
+        </div>
+      </div>
+      
+      <div class="brand-footer">
+        <div class="brand-stats">
+          <div class="stat-pill"><span class="stat-val">Reliable</span><span>Monitoring System</span></div>
+          <div class="stat-pill"><span class="stat-val">Continuous</span><span>Patient Care</span></div>
+        </div>
+        <span>© 2026 MediFlow Inc.</span>
+      </div>
+    </div>
+
+    <!-- Right Split: Login Form -->
+    <div class="form-panel">
+      <!-- Theme Switcher -->
+      <div class="login-theme-toggle">
+        <button class="btn-login-theme" onclick="toggleDarkMode(); updateLoginThemeIcon()">
+          <i class="fa-solid fa-moon" id="loginThemeIcon"></i>
+        </button>
+      </div>
+
+      <div class="form-card">
+        <h2>System Sign In</h2>
+        <p>Access your department dashboard</p>
+
+        <!-- Role selector -->
+        <div class="role-tabs">
+          <button class="role-tab active" onclick="selectRole('admin',this)">
+            <i class="fa-solid fa-user-shield"></i> Admin
+          </button>
+          <button class="role-tab" onclick="selectRole('nurse',this)">
+            <i class="fa-solid fa-user-nurse"></i> Nurse
+          </button>
+        </div>
+
+        <form onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label>Secure Email</label>
+            <div class="input-wrap">
+              <i class="fa-solid fa-envelope"></i>
+              <input type="email" id="email" placeholder="nurse@mediflow.com" required/>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 20px">
+            <label>Credential Password</label>
+            <div class="input-wrap">
+              <i class="fa-solid fa-lock"></i>
+              <input type="password" id="password" placeholder="••••••••" required/>
+              <button type="button" class="eye-btn" onclick="togglePwd()">
+                <i class="fa-solid fa-eye" id="eyeIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="login-error" id="loginError">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span id="errorMsg">Invalid credentials.</span>
+          </div>
+
+          <button type="submit" class="login-btn" id="loginBtn">
+            <span id="btnText">Authenticate</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </form>
+
+        
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let selectedRole = 'admin';
+
+    // Apply saved theme state on load
+    initDarkMode();
+    updateLoginThemeIcon();
+
+    function updateLoginThemeIcon() {
+      const icon = document.getElementById('loginThemeIcon');
+      if (!icon) return;
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      icon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    }
+
+    function selectRole(role, btn) {
+      selectedRole = role;
+      document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function togglePwd() {
+      const inp  = document.getElementById('password');
+      const icon = document.getElementById('eyeIcon');
+      inp.type   = inp.type === 'password' ? 'text' : 'password';
+      icon.className = inp.type === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const btn      = document.getElementById('loginBtn');
+      const errDiv   = document.getElementById('loginError');
+
+      btn.disabled = true;
+      document.getElementById('btnText').textContent = 'Signing in...';
+      errDiv.style.display = 'none';
+
+      const res = await apiLogin(email, password);
+
+      if (res.success) {
+        // Check role matches selected tab
+        if (res.user.role !== selectedRole) {
+          document.getElementById('errorMsg').textContent =
+            `This account is a ${res.user.role}, not a ${selectedRole}. Please select the correct role.`;
+          errDiv.style.display = 'flex';
+          btn.disabled = false;
+          document.getElementById('btnText').textContent = 'Sign In';
+          return;
+        }
+        saveSession(res.token, res.user);
+        window.location.href = res.user.role === 'admin'
+          ? '/admin/dashboard.html'
+          : '/nurse/dashboard.html';
+      } else {
+        document.getElementById('errorMsg').textContent = res.message || 'Invalid credentials.';
+        errDiv.style.display = 'flex';
+        btn.disabled = false;
+        document.getElementById('btnText').textContent = 'Sign In';
+      }
+    }
+  </script>
+</body>
+</html>

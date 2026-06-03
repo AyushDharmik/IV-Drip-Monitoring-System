@@ -1,0 +1,231 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MediFlow — Manage Patients</title>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div class="page-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-droplet"></i></div><span class="logo-text">MediFlow</span></div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="location.href='dashboard.html'"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+      <button class="nav-item" onclick="location.href='nurses.html'"><i class="fa-solid fa-user-nurse"></i> Nurses</button>
+      <button class="nav-item active" onclick="location.href='patients.html'"><i class="fa-solid fa-bed-pulse"></i> Patients</button>
+      <button class="nav-item" onclick="location.href='alerts.html'"><i class="fa-solid fa-bell"></i> Alerts</button>
+      <button class="nav-item" onclick="location.href='reports.html'"><i class="fa-solid fa-file-invoice"></i> Reports</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-theme" onclick="toggleDarkMode()"><i class="fa-solid fa-moon" id="themeIcon"></i> Dark Mode</button>
+      <div class="user-pill"><div class="user-avatar" id="sidebarAvatar">A</div><div><div class="user-name" id="sidebarName">Admin</div><div class="user-role" id="sidebarRole">Administrator</div></div></div>
+      <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </aside>
+ 
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+      <div class="topbar-title"><h1>Manage Patients</h1><p>Add patients, assign nurses, configure ThingSpeak</p></div>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="openAddModal()"><i class="fa-solid fa-plus"></i> Add Patient</button>
+      </div>
+    </header>
+ 
+    <div class="page-body">
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Patient</th><th>Bed</th><th>Ward</th><th>Assigned Nurse</th><th>ThingSpeak</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="patientTable"><tr><td colspan="8"><div class="spinner"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+ 
+<!-- Add/Edit Patient Modal -->
+<div class="modal-overlay" id="patientModal">
+  <div class="modal-box" style="max-width:600px">
+    <div class="modal-header">
+      <h3 id="modalTitle">Add New Patient</h3>
+      <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="editPatientId"/>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label>Patient Name *</label><input type="text" id="fName" placeholder="Full name"/></div>
+      <div class="form-group"><label>Age</label><input type="number" id="fAge" placeholder="Age" min="1" max="120"/></div>
+      <div class="form-group"><label>Bed Number *</label><input type="text" id="fBed" placeholder="e.g. 3B-01"/></div>
+      <div class="form-group"><label>Ward</label><input type="text" id="fWard" placeholder="e.g. ICU"/></div>
+    </div>
+    <div class="form-group"><label>Diagnosis</label><input type="text" id="fDiagnosis" placeholder="e.g. Post surgery recovery"/></div>
+    <div style="background:rgba(29,110,245,.05);border:1px solid rgba(29,110,245,.15);border-radius:10px;padding:14px;margin-bottom:14px">
+      <p style="font-size:.8rem;font-weight:600;color:var(--blue);margin-bottom:10px"><i class="fa-solid fa-satellite-dish"></i> ThingSpeak Configuration</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="margin:0"><label>Channel ID</label><input type="text" id="fChannelId" placeholder="e.g. 2345678"/></div>
+        <div class="form-group" style="margin:0"><label>Read API Key</label><input type="text" id="fReadKey" placeholder="e.g. ABC123XYZ"/></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Assign Nurse</label>
+      <select id="fNurse"><option value="">— Select Nurse —</option></select>
+    </div>
+    <div id="modalError" style="color:#dc2626;font-size:.83rem;margin-bottom:10px;display:none"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" style="background:var(--surface);color:var(--text2)" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePatient()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+    </div>
+  </div>
+</div>
+ 
+<!-- Toast -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><i class="fa-solid fa-check"></i></div>
+  <div class="toast-body"><strong id="toastTitle">Done</strong><p id="toastMsg"></p></div>
+  <button class="toast-close" onclick="closeToast()"><i class="fa-solid fa-xmark"></i></button>
+</div>
+ 
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+  requireAuth('admin');
+  initDarkMode();
+  fillSidebarUser();
+ 
+  let patients = [], nurses = [];
+ 
+  async function loadAll() {
+    const [pRes, nRes] = await Promise.all([apiGetPatients(), apiGetNurses()]);
+    if (pRes.success) { patients = pRes.patients; renderTable(); }
+    if (nRes.success) { nurses = nRes.nurses; populateNurseSelect(); }
+  }
+ 
+  function populateNurseSelect() {
+    const sel = document.getElementById('fNurse');
+    sel.innerHTML = '<option value="">— Select Nurse —</option>' +
+      nurses.map(n => `<option value="${n.nurse_id}">${n.name} (${n.ward||'No ward'})</option>`).join('');
+  }
+ 
+  function renderTable() {
+    const tbody = document.getElementById('patientTable');
+    if (patients.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fa-solid fa-bed-pulse"></i><p>No patients added yet.</p></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = patients.map((p, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><strong>${p.name}</strong><br/><small style="color:var(--muted)">Age: ${p.age||'—'} | ${p.diagnosis||'—'}</small></td>
+        <td>${p.bed_number||'—'}</td>
+        <td>${p.ward||'—'}</td>
+        <td>${p.nurse_name
+          ? `<span class="badge badge-nurse">${p.nurse_name}</span>`
+          : `<button class="btn btn-sm" style="background:rgba(245,158,11,.1);color:#d97706;border:1px solid rgba(245,158,11,.3)" onclick="quickAssign(${p.id})"><i class="fa-solid fa-link"></i> Assign</button>`
+        }</td>
+        <td>${p.thingspeak_channel_id
+          ? `<span class="badge badge-admin"><i class="fa-solid fa-satellite-dish"></i> ${p.thingspeak_channel_id}</span>`
+          : '<span style="color:var(--muted);font-size:.8rem">Not configured</span>'
+        }</td>
+        <td><span class="badge ${p.is_active ? 'badge-normal' : 'badge-warning'}">${p.is_active ? 'Active' : 'Inactive'}</span></td>
+        <td style="display:flex;gap:5px">
+          <button class="btn btn-sm btn-green" onclick="openEditModal(${p.id})" title="Edit"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="deletePatient(${p.id},'${p.name}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+  }
+ 
+  function openAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add New Patient';
+    document.getElementById('editPatientId').value = '';
+    ['fName','fAge','fBed','fWard','fDiagnosis','fChannelId','fReadKey'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('fNurse').value = '';
+    document.getElementById('modalError').style.display = 'none';
+    document.getElementById('patientModal').classList.add('open');
+  }
+ 
+  function openEditModal(id) {
+    const p = patients.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('modalTitle').textContent = 'Edit Patient';
+    document.getElementById('editPatientId').value = id;
+    document.getElementById('fName').value      = p.name||'';
+    document.getElementById('fAge').value       = p.age||'';
+    document.getElementById('fBed').value       = p.bed_number||'';
+    document.getElementById('fWard').value      = p.ward||'';
+    document.getElementById('fDiagnosis').value = p.diagnosis||'';
+    document.getElementById('fChannelId').value = p.thingspeak_channel_id||'';
+    document.getElementById('fReadKey').value   = p.thingspeak_read_key||'';
+    document.getElementById('fNurse').value     = p.nurse_id||'';
+    document.getElementById('modalError').style.display = 'none';
+    document.getElementById('patientModal').classList.add('open');
+  }
+ 
+  function quickAssign(id) {
+    openEditModal(id);
+  }
+ 
+  function closeModal() {
+    document.getElementById('patientModal').classList.remove('open');
+  }
+ 
+  async function savePatient() {
+    const id        = document.getElementById('editPatientId').value;
+    const name      = document.getElementById('fName').value.trim();
+    const age       = document.getElementById('fAge').value;
+    const bed       = document.getElementById('fBed').value.trim();
+    const ward      = document.getElementById('fWard').value.trim();
+    const diagnosis = document.getElementById('fDiagnosis').value.trim();
+    const channelId = document.getElementById('fChannelId').value.trim();
+    const readKey   = document.getElementById('fReadKey').value.trim();
+    const nurseId   = document.getElementById('fNurse').value;
+    const errEl     = document.getElementById('modalError');
+ 
+    if (!name || !bed) { errEl.textContent='Patient name and bed number are required.'; errEl.style.display='block'; return; }
+    errEl.style.display = 'none';
+ 
+    const data = { name, age:age||null, bed_number:bed, ward, diagnosis,
+      thingspeak_channel_id:channelId||null, thingspeak_read_key:readKey||null };
+ 
+    let res;
+    if (id) {
+      res = await apiUpdatePatient(id, data);
+      // Also assign nurse if changed
+      if (res.success && nurseId !== undefined) {
+        await apiAssignNurse(id, nurseId||null);
+      }
+    } else {
+      res = await apiAddPatient(data);
+      if (res.success && nurseId) {
+        await apiAssignNurse(res.patient_id, nurseId);
+      }
+    }
+ 
+    if (res.success) {
+      closeModal();
+      showToast('Success', res.message, 'success');
+      loadAll();
+    } else {
+      errEl.textContent = res.message;
+      errEl.style.display = 'block';
+    }
+  }
+ 
+  async function deletePatient(id, name) {
+    if (!confirm(`Delete patient "${name}"? All their readings and alerts will also be deleted.`)) return;
+    const res = await apiDeletePatient(id);
+    if (res.success) { showToast('Deleted', res.message, 'info'); loadAll(); }
+    else showToast('Error', res.message, 'critical');
+  }
+ 
+  loadAll();
+</script>
+</body>
+</html>
+ 

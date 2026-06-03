@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MediFlow — Admin Dashboard</title>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="fa-solid fa-droplet"></i></div>
+      <span class="logo-text">MediFlow</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" onclick="location.href='dashboard.html'">
+        <i class="fa-solid fa-gauge-high"></i> Dashboard
+      </button>
+      <button class="nav-item" onclick="location.href='nurses.html'">
+        <i class="fa-solid fa-user-nurse"></i> Nurses
+      </button>
+      <button class="nav-item" onclick="location.href='patients.html'">
+        <i class="fa-solid fa-bed-pulse"></i> Patients
+      </button>
+      <button class="nav-item" onclick="location.href='alerts.html'">
+        <i class="fa-solid fa-bell"></i> Alerts
+      </button>
+      <button class="nav-item" onclick="location.href='reports.html'">
+        <i class="fa-solid fa-file-invoice"></i> Reports
+      </button>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-theme" onclick="toggleDarkMode()">
+        <i class="fa-solid fa-moon" id="themeIcon"></i> Dark Mode
+      </button>
+      <div class="user-pill">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div>
+          <div class="user-name" id="sidebarName">Admin</div>
+          <div class="user-role" id="sidebarRole">Administrator</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+      <div class="topbar-title">
+        <h1>Admin Dashboard</h1>
+        <p>MediFlow — ICU Monitoring Overview</p>
+      </div>
+      <div class="topbar-right">
+        <span style="font-size:.78rem;color:var(--green);background:rgba(34,197,94,.08);padding:6px 11px;border-radius:20px;border:1px solid rgba(34,197,94,.2);display:flex;align-items:center;gap:6px;">
+          <span class="live-dot"></span> System Online
+        </span>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <!-- Summary Cards -->
+      <div class="summary-grid">
+        <div class="summary-card" style="--accent:#22c55e">
+          <div class="sc-icon" style="background:rgba(34,197,94,.12);color:#22c55e"><i class="fa-solid fa-bed-pulse"></i></div>
+          <div><div class="sc-label">Total Patients</div><div class="sc-value" id="sumPatients">—</div></div>
+        </div>
+        <div class="summary-card" style="--accent:#1d6ef5">
+          <div class="sc-icon" style="background:rgba(29,110,245,.12);color:#1d6ef5"><i class="fa-solid fa-user-nurse"></i></div>
+          <div><div class="sc-label">Total Nurses</div><div class="sc-value" id="sumNurses">—</div></div>
+        </div>
+        <div class="summary-card" style="--accent:#f59e0b">
+          <div class="sc-icon" style="background:rgba(245,158,11,.12);color:#f59e0b"><i class="fa-solid fa-droplet"></i></div>
+          <div><div class="sc-label">Active IV Lines</div><div class="sc-value" id="sumActive">—</div></div>
+        </div>
+        <div class="summary-card" style="--accent:#ef4444">
+          <div class="sc-icon" style="background:rgba(239,68,68,.12);color:#ef4444"><i class="fa-solid fa-bell"></i></div>
+          <div><div class="sc-label">Total Alerts</div><div class="sc-value" id="sumAlerts">—</div></div>
+        </div>
+      </div>
+
+      <!-- Patients overview -->
+      <div class="card" style="margin-bottom:24px">
+        <div class="sec-header">
+          <h2><i class="fa-solid fa-bed-pulse" style="color:var(--blue);margin-right:8px"></i>Patient Overview</h2>
+          <button class="btn btn-primary btn-sm" onclick="location.href='patients.html'">
+            <i class="fa-solid fa-plus"></i> Manage Patients
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Patient</th><th>Bed</th><th>Ward</th>
+                <th>Assigned Nurse</th><th>ThingSpeak</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="patientTable">
+              <tr><td colspan="6"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Nurses overview -->
+      <div class="card">
+        <div class="sec-header">
+          <h2><i class="fa-solid fa-user-nurse" style="color:var(--teal);margin-right:8px"></i>Nurse Overview</h2>
+          <button class="btn btn-primary btn-sm" onclick="location.href='nurses.html'">
+            <i class="fa-solid fa-plus"></i> Manage Nurses
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Email</th><th>Employee ID</th><th>Ward</th><th>Phone</th></tr>
+            </thead>
+            <tbody id="nurseTable">
+              <tr><td colspan="5"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><i class="fa-solid fa-bell"></i></div>
+  <div class="toast-body">
+    <strong id="toastTitle">Alert</strong>
+    <p id="toastMsg"></p>
+  </div>
+  <button class="toast-close" onclick="closeToast()"><i class="fa-solid fa-xmark"></i></button>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+  // Auth guard — only admin allowed
+  requireAuth('admin');
+  initDarkMode();
+  fillSidebarUser();
+
+  async function loadDashboard() {
+    // Load patients
+    const pRes = await apiGetPatients();
+    if (pRes.success) {
+      document.getElementById('sumPatients').textContent = pRes.patients.length;
+      document.getElementById('sumActive').textContent =
+        pRes.patients.filter(p => p.is_active).length;
+
+      const tbody = document.getElementById('patientTable');
+      if (pRes.patients.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-bed-pulse"></i><p>No patients added yet</p></div></td></tr>`;
+      } else {
+        tbody.innerHTML = pRes.patients.map(p => `
+          <tr>
+            <td><strong>${p.name}</strong><br/><small style="color:var(--muted)">Age: ${p.age||'—'}</small></td>
+            <td>${p.bed_number||'—'}</td>
+            <td>${p.ward||'—'}</td>
+            <td>${p.nurse_name ? `<span class="badge badge-nurse">${p.nurse_name}</span>` : '<span style="color:var(--muted)">Unassigned</span>'}</td>
+            <td>${p.thingspeak_channel_id ? `<span class="badge badge-admin">Ch: ${p.thingspeak_channel_id}</span>` : '<span style="color:var(--muted)">Not set</span>'}</td>
+            <td><span class="badge ${p.is_active ? 'badge-normal' : 'badge-warning'}">${p.is_active ? 'Active' : 'Inactive'}</span></td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    // Load nurses
+    const nRes = await apiGetNurses();
+    if (nRes.success) {
+      document.getElementById('sumNurses').textContent = nRes.nurses.length;
+      const tbody = document.getElementById('nurseTable');
+      if (nRes.nurses.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-user-nurse"></i><p>No nurses added yet</p></div></td></tr>`;
+      } else {
+        tbody.innerHTML = nRes.nurses.map(n => `
+          <tr>
+            <td><strong>${n.name}</strong></td>
+            <td>${n.email}</td>
+            <td>${n.employee_id||'—'}</td>
+            <td>${n.ward||'—'}</td>
+            <td>${n.phone||'—'}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    // Load alerts count
+    const aRes = await apiGetAlerts();
+    if (aRes.success) {
+      document.getElementById('sumAlerts').textContent = aRes.alerts.length;
+    }
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

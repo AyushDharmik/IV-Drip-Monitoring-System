@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MediFlow — Export Reports</title>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    /* Styling elements to match user's mockup */
+    .report-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      border: 1.5px solid var(--border);
+    }
+    .report-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--blue);
+    }
+    .pill {
+      border: none;
+      padding: 6px 16px;
+      font-size: .82rem;
+      font-weight: 600;
+      border-radius: 20px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text2);
+      transition: all 0.2s;
+    }
+    .pill.active {
+      background: var(--blue) !important;
+      color: #fff !important;
+      box-shadow: var(--shadow);
+    }
+    .search-wrap input {
+      padding: 8px 12px 8px 34px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      width: 200px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .search-wrap input:focus {
+      border-color: var(--blue);
+      width: 240px;
+      background: var(--card);
+    }
+  </style>
+</head>
+<body>
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="fa-solid fa-droplet"></i></div>
+      <span class="logo-text">MediFlow</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="location.href='dashboard.html'"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+      <button class="nav-item" onclick="location.href='nurses.html'"><i class="fa-solid fa-user-nurse"></i> Nurses</button>
+      <button class="nav-item" onclick="location.href='patients.html'"><i class="fa-solid fa-bed-pulse"></i> Patients</button>
+      <button class="nav-item" onclick="location.href='alerts.html'"><i class="fa-solid fa-bell"></i> Alerts</button>
+      <button class="nav-item active" onclick="location.href='reports.html'"><i class="fa-solid fa-file-invoice"></i> Reports</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-theme" onclick="toggleDarkMode()"><i class="fa-solid fa-moon" id="themeIcon"></i> Dark Mode</button>
+      <div class="user-pill">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div>
+          <div class="user-name" id="sidebarName">Admin</div>
+          <div class="user-role" id="sidebarRole">Administrator</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+      <div class="topbar-title">
+        <h1 style="font-size:1.35rem">Reports</h1>
+        <p style="color:var(--muted)">Export patient data</p>
+      </div>
+      <div class="topbar-right">
+        <!-- Search bar input -->
+        <div class="search-wrap" style="position:relative; display:flex; align-items:center;">
+          <i class="fa-solid fa-search" style="position:absolute; left:12px; color:var(--muted); font-size:.85rem;"></i>
+          <input type="text" id="filterSearch" placeholder="Search patient, bed..." oninput="applyFilters()"/>
+        </div>
+        
+        <!-- Category filter pills -->
+        <div class="filter-pills" style="display:flex; gap:4px; background: var(--surface); padding: 4px; border-radius: 20px; border: 1.5px solid var(--border); align-items: center;">
+          <button class="pill active" id="pill-all" onclick="selectFilterPill('all')">All</button>
+          <button class="pill" id="pill-normal" onclick="selectFilterPill('normal')">Normal</button>
+          <button class="pill" id="pill-warning" onclick="selectFilterPill('warning')">Warning</button>
+          <button class="pill" id="pill-critical" onclick="selectFilterPill('critical')">Critical</button>
+        </div>
+
+        <!-- Notification Bell with circular red badge -->
+        <div class="noti-bell" style="position:relative; width:38px; height:38px; border: 1.5px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:var(--card); color:var(--text2);" onclick="location.href='alerts.html'">
+          <i class="fa-solid fa-bell"></i>
+          <span style="position:absolute; top:-5px; right:-5px; background:var(--red); color:#fff; font-size:.62rem; font-weight:700; border-radius:50%; width:18px; height:18px; display:none; align-items:center; justify-content:center; border:2px solid var(--card);" id="alertCountBadge">0</span>
+        </div>
+
+        <!-- Status Pill with live dot -->
+        <span style="font-size:.78rem;color:var(--green);background:rgba(34,197,94,.08);padding:6px 11px;border-radius:20px;border:1px solid rgba(34,197,94,.2);display:flex;align-items:center;gap:6px;font-weight:600;">
+          <span class="live-dot"></span> Live
+        </span>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="sec-header" style="margin-bottom: 24px;">
+        <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text);">Export Reports</h2>
+      </div>
+
+      <div class="reports-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 32px;">
+        <!-- CSV Card -->
+        <div class="card report-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px; justify-content: space-between; min-height: 280px;">
+          <div style="margin-bottom: 16px;">
+            <!-- Beautiful styled CSV page icon to match mockup -->
+            <div style="position: relative; width: 68px; height: 84px; background: var(--surface); border: 2.5px solid var(--blue); border-radius: 8px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 12px; box-shadow: var(--shadow); margin: 0 auto 12px;">
+              <!-- Top-right corner fold -->
+              <div style="position: absolute; top: -2.5px; right: -2.5px; width: 18px; height: 18px; background: var(--card); border-left: 2.5px solid var(--blue); border-bottom: 2.5px solid var(--blue); border-top-right-radius: 8px; border-bottom-left-radius: 6px;"></div>
+              <i class="fa-solid fa-file-csv" style="color: var(--blue); font-size: 1.9rem; margin-bottom: 4px;"></i>
+              <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 0.8rem; color: var(--blue); letter-spacing: 0.5px;">CSV</span>
+            </div>
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text); margin-bottom: 8px;">Export CSV</h3>
+            <p style="font-size: 0.9rem; color: var(--text2); max-width: 320px; line-height: 1.5;">Download current patient data as CSV spreadsheet.</p>
+          </div>
+          <button class="btn btn-primary" onclick="exportCSV()" style="padding: 12px 32px; font-size: 0.95rem; border-radius: 10px; width: 100%; max-width: 220px; justify-content: center; font-family: 'Space Grotesk', sans-serif;">Download CSV</button>
+        </div>
+
+        <!-- PDF Card -->
+        <div class="card report-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px; justify-content: space-between; min-height: 280px;">
+          <div style="margin-bottom: 16px;">
+            <!-- Beautiful styled PDF page icon to match mockup -->
+            <div style="position: relative; width: 68px; height: 84px; background: var(--surface); border: 2.5px solid var(--blue); border-radius: 8px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 12px; box-shadow: var(--shadow); margin: 0 auto 12px;">
+              <!-- Top-right corner fold -->
+              <div style="position: absolute; top: -2.5px; right: -2.5px; width: 18px; height: 18px; background: var(--card); border-left: 2.5px solid var(--blue); border-bottom: 2.5px solid var(--blue); border-top-right-radius: 8px; border-bottom-left-radius: 6px;"></div>
+              <i class="fa-solid fa-file-pdf" style="color: var(--blue); font-size: 1.9rem; margin-bottom: 4px;"></i>
+              <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 0.8rem; color: var(--blue); letter-spacing: 0.5px;">PDF</span>
+            </div>
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text); margin-bottom: 8px;">Export PDF Report</h3>
+            <p style="font-size: 0.9rem; color: var(--text2); max-width: 320px; line-height: 1.5;">Generate a printable summary report for all patients.</p>
+          </div>
+          <button class="btn btn-primary" onclick="exportPDF()" style="padding: 12px 32px; font-size: 0.95rem; border-radius: 10px; width: 100%; max-width: 220px; justify-content: center; font-family: 'Space Grotesk', sans-serif;">Generate PDF</button>
+        </div>
+      </div>
+      
+      <!-- Live Filter Preview Panel -->
+      <div class="card">
+        <div class="sec-header">
+          <h2 style="display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-list-check" style="color:var(--blue);"></i> 
+            Export Preview (<span id="previewCount">0</span> Patients Selected)
+          </h2>
+          <span style="font-size:0.8rem; color:var(--muted); font-weight: 600;" id="filterIndicator">Active Filters: None</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Bed</th>
+                <th>Ward</th>
+                <th>Assigned Nurse</th>
+
+                <th>Drip Rate</th>
+                <th>Flow Status</th>
+                <th>Telemetry Status</th>
+              </tr>
+            </thead>
+            <tbody id="previewTableBody">
+              <tr><td colspan="8"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast notifications -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><i class="fa-solid fa-check"></i></div>
+  <div class="toast-body">
+    <strong id="toastTitle">Notification</strong>
+    <p id="toastMsg"></p>
+  </div>
+  <button class="toast-close" onclick="closeToast()"><i class="fa-solid fa-xmark"></i></button>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/thingspeak.js"></script>
+
+<script>
+  requireAuth('admin');
+  initDarkMode();
+  fillSidebarUser();
+
+  let allPatients = [];
+  let filteredPatients = [];
+  let currentStatusFilter = 'all';
+
+  async function loadData() {
+    const res = await apiGetPatients();
+    if (res.success) {
+      // Loop through patients and fetch/simulate live telemetry for each patient to determine status
+      const promises = res.patients.map(async p => {
+        let reading;
+        if (p.thingspeak_channel_id) {
+          reading = await fetchThingSpeak(p.thingspeak_channel_id, p.thingspeak_read_key);
+        } else {
+          // If no channel is set, use simulated telemetry
+          reading = simulateReading(p.id);
+        }
+        const telemetryStatus = getAlertStatus(reading);
+        return {
+          ...p,
+          reading,
+          telemetryStatus
+        };
+      });
+
+      allPatients = await Promise.all(promises);
+      applyFilters();
+      updateNotificationBadge();
+    } else {
+      document.getElementById('previewTableBody').innerHTML = `
+        <tr><td colspan="8"><div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i><p>Failed to load patient records. Check backend status.</p></div></td></tr>
+      `;
+    }
+  }
+
+  function updateNotificationBadge() {
+    const criticalCount = allPatients.filter(p => p.telemetryStatus === 'critical').length;
+    const badge = document.getElementById('alertCountBadge');
+    if (criticalCount > 0) {
+      badge.textContent = criticalCount;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function selectFilterPill(status) {
+    currentStatusFilter = status;
+    document.querySelectorAll('.pill').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`pill-${status}`).classList.add('active');
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const searchVal = document.getElementById('filterSearch').value.toLowerCase().trim();
+    
+    filteredPatients = allPatients.filter(p => {
+      const matchesSearch = !searchVal || 
+                            p.name.toLowerCase().includes(searchVal) ||
+                            (p.bed_number && p.bed_number.toLowerCase().includes(searchVal)) ||
+                            (p.ward && p.ward.toLowerCase().includes(searchVal));
+                            
+      const matchesStatus = currentStatusFilter === 'all' || p.telemetryStatus === currentStatusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+
+    // Update UI counters
+    document.getElementById('previewCount').textContent = filteredPatients.length;
+    
+    // Update Filter Indicator Text
+    let filterParts = [];
+    if (currentStatusFilter !== 'all') {
+      filterParts.push(`Status: ${currentStatusFilter.toUpperCase()}`);
+    }
+    if (searchVal) {
+      filterParts.push(`Search: "${searchVal}"`);
+    }
+    document.getElementById('filterIndicator').textContent = 
+      filterParts.length > 0 ? `Active Filters: ${filterParts.join(' | ')}` : 'Active Filters: None';
+
+    renderTable();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('previewTableBody');
+    if (filteredPatients.length === 0) {
+      tbody.innerHTML = `
+        <tr><td colspan="8"><div class="empty-state"><i class="fa-solid fa-filter-circle-xmark"></i><p>No patients match the active filters.</p></div></td></tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = filteredPatients.map(p => {
+      let statusBadge = '';
+      if (p.telemetryStatus === 'critical') {
+        statusBadge = '<span class="badge badge-critical"><i class="fa-solid fa-triangle-exclamation"></i> Critical</span>';
+      } else if (p.telemetryStatus === 'warning') {
+        statusBadge = '<span class="badge badge-warning"><i class="fa-solid fa-circle-exclamation"></i> Warning</span>';
+      } else {
+        statusBadge = '<span class="badge badge-normal"><i class="fa-solid fa-circle-check"></i> Normal</span>';
+      }
+
+      return `
+        <tr>
+          <td><strong>${p.name}</strong><br/><small style="color:var(--muted)">Age: ${p.age || '—'}</small></td>
+          <td><span class="badge badge-admin">Bed ${p.bed_number || '—'}</span></td>
+          <td>${p.ward || '—'}</td>
+          <td>${p.nurse_name ? `<span class="badge badge-nurse">${p.nurse_name}</span>` : '<span style="color:var(--muted)">Unassigned</span>'}</td>
+
+          <td><strong>${p.reading.dripRate} dpm</strong></td>
+          <td>
+            <span style="display:inline-flex; align-items:center; gap:5px; font-weight:600; font-size:0.82rem; color:${p.reading.flowStatus === 'Running' ? 'var(--green)' : 'var(--red)'}">
+              <span style="width:6px; height:6px; border-radius:50%; background:${p.reading.flowStatus === 'Running' ? 'var(--green)' : 'var(--red)'}"></span>
+              ${p.reading.flowStatus}
+            </span>
+          </td>
+          <td>${statusBadge}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // ── CSV Download Engine ────────────────────────────────
+  function exportCSV() {
+    if (filteredPatients.length === 0) {
+      showToast('Export Failed', 'No patient records available for export.', 'critical');
+      return;
+    }
+
+    const headers = [
+      'Patient ID', 'Name', 'Age', 'Bed Number', 'Ward', 'Diagnosis', 
+      'Nurse Name', 'ThingSpeak Channel ID', 
+      'Drip Rate (dpm)', 'Flow Status', 'Blood Detected', 'Telemetry Status'
+    ];
+
+    const rows = filteredPatients.map(p => [
+      p.id,
+      `"${p.name.replace(/"/g, '""')}"`,
+      p.age || '—',
+      `"${p.bed_number || '—'}"`,
+      `"${p.ward || '—'}"`,
+      `"${(p.diagnosis || '—').replace(/"/g, '""')}"`,
+      `"${(p.nurse_name || 'Unassigned').replace(/"/g, '""')}"`,
+      p.thingspeak_channel_id || 'Not Set',
+
+      p.reading.dripRate,
+      p.reading.flowStatus,
+      p.reading.bloodDetected ? 'YES' : 'NO',
+      p.telemetryStatus.toUpperCase()
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    link.href = url;
+    link.setAttribute('download', `mediflow_patients_report_${currentStatusFilter}_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast('Export Successful', `Downloaded spreadsheet for ${filteredPatients.length} patients.`, 'success');
+  }
+
+  // ── PDF Print Document Generator ────────────────────────
+  function exportPDF() {
+    if (filteredPatients.length === 0) {
+      showToast('Export Failed', 'No patient records available for printing.', 'critical');
+      return;
+    }
+
+    const printWin = window.open('', '_blank');
+    const dateStr = new Date().toLocaleString();
+    
+    // Build patient rows
+    const rowsHTML = filteredPatients.map((p, idx) => {
+      let statusStyle = 'color: #16a34a; font-weight: bold;';
+      if (p.telemetryStatus === 'critical') statusStyle = 'color: #dc2626; font-weight: bold; text-decoration: underline;';
+      else if (p.telemetryStatus === 'warning') statusStyle = 'color: #d97706; font-weight: bold;';
+
+      return `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>
+            <strong>${p.name}</strong><br/>
+            <small style="color: #64748b">Age: ${p.age || '—'} | Diag: ${p.diagnosis || '—'}</small>
+          </td>
+          <td>Bed ${p.bed_number || '—'}</td>
+          <td>${p.ward || '—'}</td>
+          <td>${p.nurse_name || 'Unassigned'}</td>
+
+          <td style="text-align: center;"><strong>${p.reading.dripRate} dpm</strong></td>
+          <td style="text-align: center; color: ${p.reading.flowStatus === 'Running' ? '#16a34a' : '#dc2626'}"><strong>${p.reading.flowStatus}</strong></td>
+          <td style="text-align: center; ${statusStyle}">${p.telemetryStatus.toUpperCase()}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const criticalCount = filteredPatients.filter(p => p.telemetryStatus === 'critical').length;
+    const warningCount = filteredPatients.filter(p => p.telemetryStatus === 'warning').length;
+    const normalCount = filteredPatients.filter(p => p.telemetryStatus === 'normal').length;
+
+    // Document contents with full styling for printing
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>MediFlow Summary Audit Report — ${new Date().toISOString().split('T')[0]}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+          body {
+            font-family: 'Inter', sans-serif;
+            color: #0f172a;
+            margin: 0;
+            padding: 40px;
+            background: #fff;
+            font-size: 13px;
+            line-height: 1.4;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2.5px solid #1d6ef5;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .brand-logo {
+            width: 32px;
+            height: 32px;
+            background: #1d6ef5;
+            border-radius: 8px;
+            display: inline-block;
+          }
+          .brand-text {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+          }
+          .report-meta {
+            text-align: right;
+            color: #64748b;
+          }
+          .report-meta h2 {
+            margin: 0 0 6px 0;
+            font-size: 22px;
+            color: #0f172a;
+            font-weight: 700;
+          }
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+          }
+          .stat-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+          }
+          .stat-val {
+            font-size: 22px;
+            font-weight: 700;
+            margin-top: 4px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+          }
+          th {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1.5px solid #cbd5e1;
+          }
+          td {
+            padding: 12px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+          }
+          tr:hover td {
+            background: #f8fafc;
+          }
+          .footer {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 15px;
+            margin-top: 50px;
+            text-align: center;
+            font-size: 11px;
+            color: #94a3b8;
+          }
+          @media print {
+            body {
+              padding: 0;
+            }
+            .no-print {
+              display: none;
+            }
+            button {
+              display: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div style="max-width: 1000px; margin: 0 auto;">
+          <div class="header">
+            <div class="brand">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: #1d6ef5; display: inline-block; margin-right: 6px;"></div>
+              <span class="brand-text">MediFlow ICU Systems</span>
+            </div>
+            <div class="report-meta">
+              <h2>ICU Patient Telemetry Audit</h2>
+              <div>Generated: <strong>${dateStr}</strong></div>
+              <div>Active Filter Category: <strong>${currentStatusFilter.toUpperCase()}</strong></div>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card" style="border-left: 4px solid #1d6ef5">
+              <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600;">Total Inpatients</div>
+              <div class="stat-val" style="color: #1d6ef5">${filteredPatients.length}</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid #16a34a">
+              <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600;">Normal Status</div>
+              <div class="stat-val" style="color: #16a34a">${normalCount}</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid #d97706">
+              <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600;">Warning Status</div>
+              <div class="stat-val" style="color: #d97706">${warningCount}</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid #dc2626">
+              <div style="color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600;">Critical Alerts</div>
+              <div class="stat-val" style="color: #dc2626">${criticalCount}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 40px;">#</th>
+                <th>Patient</th>
+                <th>Bed</th>
+                <th>Ward</th>
+                <th>Assigned Nurse</th>
+
+                <th style="text-align: center;">Drip Rate</th>
+                <th style="text-align: center;">Flow</th>
+                <th style="text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <p>Confidential Medical Record — Authorized Access Only — MediFlow Real-time Telemetry Systems</p>
+            <p style="margin-top: 4px;">Page 1 of 1</p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px;" class="no-print">
+            <button onclick="window.print()" style="padding: 10px 24px; background: #1d6ef5; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; box-shadow: 0 4px 12px rgba(29, 110, 245, 0.3)">
+              <i class="fa-solid fa-print"></i> Confirm Print / Save PDF
+            </button>
+          </div>
+        </div>
+
+        <script>
+          // Auto trigger print layout on popup load
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 500);
+          }
+        <\/script>
+      </body>
+      </html>
+    `);
+    
+    printWin.document.close();
+    showToast('Report Generated', 'Report summary loaded in a new printable window.', 'success');
+  }
+
+  // Load patient list and status feeds
+  loadData();
+</script>
+</body>
+</html>

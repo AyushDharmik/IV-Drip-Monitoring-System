@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MediFlow — Nurse Dashboard</title>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    /* Patient monitoring cards */
+    .patients-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;}
+    .patient-card{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border:2px solid transparent;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;}
+    .patient-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);}
+    .patient-card.normal{border-color:rgba(34,197,94,.3);}
+    .patient-card.warning{border-color:rgba(245,158,11,.5);}
+    .patient-card.critical{border-color:var(--red);animation:flash 1s ease-in-out infinite alternate;}
+    @keyframes flash{from{border-color:rgba(239,68,68,.4);box-shadow:0 0 0 rgba(239,68,68,0)}to{border-color:#ef4444;box-shadow:0 0 20px rgba(239,68,68,.2)}}
+    .card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+    .patient-name{font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:600;}
+    .patient-bed{font-size:.76rem;color:var(--muted);margin-top:2px;}
+    .fluid-label{display:flex;justify-content:space-between;font-size:.76rem;color:var(--muted);margin-bottom:5px;}
+    .fluid-bar{height:8px;background:var(--border);border-radius:20px;overflow:hidden;margin-bottom:14px;}
+    .fluid-fill{height:100%;border-radius:20px;transition:width .6s ease,background .4s;}
+    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+    .metric{background:var(--surface);border-radius:9px;padding:10px;}
+    .metric-label{font-size:.7rem;color:var(--muted);margin-bottom:3px;}
+    .metric-value{font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:600;}
+    .metric-value.running{color:var(--green);}
+    .metric-value.stopped{color:var(--red);}
+    .alert-tags{display:flex;flex-wrap:wrap;gap:5px;}
+    .alert-tag{padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;}
+    .alert-tag.ok{background:rgba(34,197,94,.1);color:#16a34a;border:1px solid rgba(34,197,94,.2);}
+    .alert-tag.warn{background:rgba(239,68,68,.1);color:#dc2626;border:1px solid rgba(239,68,68,.2);}
+    .predict-tag{margin-top:9px;padding:6px 10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;font-size:.74rem;color:#b45309;display:flex;align-items:center;gap:6px;}
+    /* Notification panel */
+    .notif-panel{position:fixed;top:0;right:-360px;width:340px;height:100vh;background:var(--card);border-left:1px solid var(--border);z-index:200;display:flex;flex-direction:column;transition:right .3s;box-shadow:-8px 0 32px rgba(0,0,0,.08);}
+    .notif-panel.open{right:0;}
+    .notif-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border);}
+    .notif-header h3{font-size:1rem;font-weight:700;display:flex;align-items:center;gap:8px;}
+    .notif-body{flex:1;overflow-y:auto;padding:12px;}
+    .notif-item{padding:11px 12px;border-radius:9px;margin-bottom:8px;border-left:3px solid var(--border);background:var(--surface);font-size:.82rem;}
+    .notif-item.critical{border-color:var(--red);background:rgba(239,68,68,.05);}
+    .notif-item.warning{border-color:var(--yellow);background:rgba(245,158,11,.05);}
+    .notif-title{font-weight:600;color:var(--text);margin-bottom:2px;}
+    .notif-msg{color:var(--text2);}
+    .notif-time{color:var(--muted);font-size:.72rem;margin-top:3px;}
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:150;}
+    .overlay.show{display:block;}
+    /* Bell badge */
+    .bell-btn{position:relative;width:38px;height:38px;border:1.5px solid var(--border);border-radius:9px;background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem;color:var(--text2);}
+    .bell-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:.65rem;font-weight:700;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+    @media(max-width:600px){.patients-grid{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+<div class="page-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo"><div class="logo-icon"><i class="fa-solid fa-droplet"></i></div><span class="logo-text">MediFlow</span></div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active"><i class="fa-solid fa-gauge-high"></i> My Patients</button>
+      <button class="nav-item" onclick="toggleNotifPanel()"><i class="fa-solid fa-bell"></i> Alerts <span class="badge badge-critical" id="alertCount" style="margin-left:auto">0</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-theme" onclick="toggleDarkMode()"><i class="fa-solid fa-moon" id="themeIcon"></i> Dark Mode</button>
+      <div class="user-pill"><div class="user-avatar" id="sidebarAvatar">N</div><div><div class="user-name" id="sidebarName">Nurse</div><div class="user-role" id="sidebarRole">Nurse</div></div></div>
+      <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+      <div class="topbar-title"><h1>My Patients</h1><p id="topbarSub">Loading...</p></div>
+      <div class="topbar-right">
+        <button class="bell-btn" onclick="toggleNotifPanel()">
+          <i class="fa-solid fa-bell"></i>
+          <span class="bell-badge" id="bellBadge">0</span>
+        </button>
+        <span style="font-size:.78rem;color:var(--green);background:rgba(34,197,94,.08);padding:6px 11px;border-radius:20px;border:1px solid rgba(34,197,94,.2);display:flex;align-items:center;gap:6px;">
+          <span class="live-dot"></span> LIVE
+        </span>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <!-- Summary -->
+      <div class="summary-grid" style="margin-bottom:24px">
+        <div class="summary-card" style="--accent:#22c55e">
+          <div class="sc-icon" style="background:rgba(34,197,94,.12);color:#22c55e"><i class="fa-solid fa-bed-pulse"></i></div>
+          <div><div class="sc-label">My Patients</div><div class="sc-value" id="sumTotal">—</div></div>
+        </div>
+        <div class="summary-card" style="--accent:#f59e0b">
+          <div class="sc-icon" style="background:rgba(245,158,11,.12);color:#f59e0b"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div><div class="sc-label">Warnings</div><div class="sc-value" id="sumWarning">—</div></div>
+        </div>
+        <div class="summary-card" style="--accent:#ef4444">
+          <div class="sc-icon" style="background:rgba(239,68,68,.12);color:#ef4444"><i class="fa-solid fa-circle-exclamation"></i></div>
+          <div><div class="sc-label">Critical</div><div class="sc-value" id="sumCritical">—</div></div>
+        </div>
+        <div class="summary-card" style="--accent:#1d6ef5">
+          <div class="sc-icon" style="background:rgba(29,110,245,.12);color:#1d6ef5"><i class="fa-solid fa-droplet"></i></div>
+          <div><div class="sc-label">Active IVs</div><div class="sc-value" id="sumRunning">—</div></div>
+        </div>
+      </div>
+
+      <div class="sec-header">
+        <h2>Patient Monitoring <span style="font-size:.78rem;color:var(--muted);font-weight:400;margin-left:8px">Updates every 3 seconds</span></h2>
+      </div>
+
+      <div class="patients-grid" id="patientsGrid">
+        <div class="card" style="grid-column:1/-1;text-align:center;padding:40px">
+          <div class="spinner"></div>
+          <p style="color:var(--muted);margin-top:8px">Loading patients...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Notification Panel -->
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-header">
+    <h3><i class="fa-solid fa-bell"></i> Notifications</h3>
+    <button style="border:none;background:none;font-size:1.1rem;color:var(--muted);cursor:pointer" onclick="toggleNotifPanel()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="notif-body" id="notifList"><p style="text-align:center;color:var(--muted);padding:30px 0;font-size:.85rem">No notifications yet</p></div>
+  <div style="padding:12px 16px;border-top:1px solid var(--border)">
+    <button onclick="clearNotifs()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;cursor:pointer">Clear All</button>
+  </div>
+</div>
+<div class="overlay" id="overlay" onclick="closeOverlays()"></div>
+
+<!-- Toast alert -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><i class="fa-solid fa-triangle-exclamation" id="toastIcon"></i></div>
+  <div class="toast-body"><strong id="toastTitle">Alert</strong><p id="toastMsg"></p></div>
+  <button class="toast-close" onclick="closeToast()"><i class="fa-solid fa-xmark"></i></button>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/thingspeak.js"></script>
+<script>
+  requireAuth('nurse');
+  initDarkMode();
+  fillSidebarUser();
+
+  let patients   = [];
+  let readings   = {};  // { patientId: lastReading }
+  let firedAlerts = {}; // { 'patientId-alertType': true }
+  let notifs     = [];
+  let updateTimer;
+
+  // ── Load patients ──────────────────────────────
+  async function loadPatients() {
+    const res = await apiGetMyPatients();
+    if (!res.success) {
+      document.getElementById('patientsGrid').innerHTML =
+        `<div class="card" style="grid-column:1/-1"><div class="empty-state"><i class="fa-solid fa-circle-exclamation"></i><p>${res.message}</p></div></div>`;
+      return;
+    }
+    patients = res.patients;
+    document.getElementById('topbarSub').textContent =
+      `${patients.length} patient${patients.length !== 1 ? 's' : ''} assigned to you`;
+    document.getElementById('sumTotal').textContent = patients.length;
+
+    if (patients.length === 0) {
+      document.getElementById('patientsGrid').innerHTML =
+        `<div class="card" style="grid-column:1/-1"><div class="empty-state"><i class="fa-solid fa-bed-pulse"></i><p>No patients assigned to you yet.<br/>Contact your admin.</p></div></div>`;
+      return;
+    }
+
+    // Start live updates
+    await updateAllReadings();
+    clearInterval(updateTimer);
+    updateTimer = setInterval(updateAllReadings, 5000);
+  }
+
+  // ── Fetch latest reading for all patients ──────
+  async function updateAllReadings() {
+    await Promise.all(patients.map(async p => {
+      const r = await fetchThingSpeak(p.thingspeak_channel_id, p.thingspeak_read_key);
+      readings[p.id] = r;
+
+      if (!p._lastSaved || Date.now() - p._lastSaved > 15000) {
+        apiSaveReading({ patient_id:p.id, drip_rate:r.dripRate, flow_status:r.flowStatus, blood_detected:r.bloodDetected });
+        p._lastSaved = Date.now();
+      }
+
+      // Check alerts
+      checkAlerts(p, r);
+    }));
+
+    renderGrid();
+    updateSummary();
+  }
+
+  // ── Check and fire alerts ──────────────────────
+  function checkAlerts(patient, reading) {
+    const alertDefs = [
+      { key:'blood',    condition: reading.bloodDetected,                             type:'backflow',        title:'🩸 Backflow Alert!',        msg:`Blood backflow — ${patient.name} (Bed ${patient.bed_number})`,  level:'critical' },
+      { key:'stopped',  condition: reading.flowStatus==='Stopped', type:'drip_stopped', title:'🚫 Drip Stopped',         msg:`IV drip stopped — ${patient.name} (Bed ${patient.bed_number})`,  level:'critical' },
+    ];
+
+    alertDefs.forEach(def => {
+      const fkey = `${patient.id}-${def.key}`;
+      if (def.condition && !firedAlerts[fkey]) {
+        firedAlerts[fkey] = true;
+        triggerAlert(def, patient, reading);
+      } else if (!def.condition) {
+        delete firedAlerts[fkey];
+      }
+    });
+  }
+
+  // ── Fire: toast + beep + log + save to DB ─────
+  function triggerAlert(def, patient, reading) {
+    // Beep
+    if (def.level === 'critical') { playBeep(880,.7); setTimeout(()=>playBeep(660,.5),350); }
+    else playBeep(520, .4);
+
+    // Toast
+    showToast(def.title, def.msg, def.level);
+
+    // Log to notification panel
+    const time = new Date().toLocaleTimeString();
+    notifs.unshift({ title:def.title, msg:def.msg, level:def.level, time });
+    if (notifs.length > 50) notifs.pop();
+    updateBadges();
+
+    // Save to DB
+    apiSaveAlert({ patient_id:patient.id, alert_type:def.type, message:def.msg, drip_rate:reading.dripRate });
+  }
+
+  // ── Render all patient cards ───────────────────
+  function renderGrid() {
+    const grid = document.getElementById('patientsGrid');
+    grid.innerHTML = patients.map(p => buildCard(p)).join('');
+  }
+
+  function buildCard(p) {
+    const r = readings[p.id];
+    if (!r) return '';
+    const status  = getAlertStatus(r);
+    const alerts  = getAlertMessages(r);
+    const alertHTML = alerts.length
+      ? alerts.map(a => `<span class="alert-tag warn">${a.text}</span>`).join('')
+      : `<span class="alert-tag ok"><i class="fa-solid fa-circle-check"></i> Normal</span>`;
+
+    const simBadge = !r.isReal
+      ? `<span style="position:absolute;top:10px;right:10px;font-size:.65rem;background:rgba(245,158,11,.1);color:#d97706;padding:2px 6px;border-radius:4px;border:1px solid rgba(245,158,11,.3)">SIM</span>` : '';
+
+    return `
+      <div class="patient-card ${status}" onclick="openDetail(${p.id})">
+        ${simBadge}
+        <div class="card-top">
+          <div>
+            <div class="patient-name">${p.name}</div>
+            <div class="patient-bed"><i class="fa-solid fa-bed"></i> ${p.bed_number} &nbsp;·&nbsp; ${p.ward||'—'}</div>
+          </div>
+          <span class="badge badge-${status}">${status}</span>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-label"><i class="fa-solid fa-droplet"></i> Drip Rate</div>
+            <div class="metric-value">${r.dripRate.toFixed(1)} <small style="font-size:.7rem;font-weight:400">dpm</small></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label"><i class="fa-solid fa-circle-play"></i> Flow Status</div>
+            <div class="metric-value ${r.flowStatus.toLowerCase()}">${r.flowStatus}</div>
+          </div>
+        </div>
+        <div class="alert-tags">${alertHTML}</div>
+      </div>
+    `;
+  }
+
+  // ── Summary counts ────────────────────────────
+  function updateSummary() {
+    let w=0, c=0, run=0;
+    patients.forEach(p => {
+      const r = readings[p.id]; if(!r) return;
+      const s = getAlertStatus(r);
+      if(s==='warning')  w++;
+      if(s==='critical') c++;
+      if(r.flowStatus==='Running') run++;
+    });
+    document.getElementById('sumWarning').textContent  = w;
+    document.getElementById('sumCritical').textContent = c;
+    document.getElementById('sumRunning').textContent  = run;
+  }
+
+  // ── Navigate to detail page ───────────────────
+  function openDetail(id) {
+    window.location.href = `patient.html?id=${id}`;
+  }
+
+  // ── Notification panel ────────────────────────
+  function toggleNotifPanel() {
+    document.getElementById('notifPanel').classList.toggle('open');
+    document.getElementById('overlay').classList.toggle('show');
+    renderNotifPanel();
+  }
+  function closeOverlays() {
+    document.getElementById('notifPanel').classList.remove('open');
+    document.getElementById('overlay').classList.remove('show');
+  }
+  function renderNotifPanel() {
+    const list = document.getElementById('notifList');
+    if (!notifs.length) { list.innerHTML=`<p style="text-align:center;color:var(--muted);padding:30px 0;font-size:.85rem">No notifications yet</p>`; return; }
+    list.innerHTML = notifs.map(n => `
+      <div class="notif-item ${n.level}">
+        <div class="notif-title">${n.title}</div>
+        <div class="notif-msg">${n.msg}</div>
+        <div class="notif-time">${n.time}</div>
+      </div>
+    `).join('');
+  }
+  function clearNotifs() {
+    notifs = []; firedAlerts = {};
+    updateBadges(); renderNotifPanel();
+  }
+  function updateBadges() {
+    const count = notifs.length;
+    document.getElementById('bellBadge').textContent  = count;
+    document.getElementById('alertCount').textContent = count;
+  }
+
+  loadPatients();
+</script>
+</body>
+</html>

@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MediFlow — Live Patient Monitor</title>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .patient-container {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+    }
+    .main-monitor-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .chart-container {
+      position: relative;
+      height: 320px;
+      width: 100%;
+    }
+    .patient-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      border: 1px solid var(--border);
+    }
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .meta-lbl {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .meta-val {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    /* Metrics Row */
+    .telemetry-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .telemetry-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      transition: all 0.2s;
+    }
+    .telemetry-card.danger {
+      border-color: var(--red);
+      background: rgba(239, 68, 68, 0.04);
+    }
+    .telemetry-card.warning {
+      border-color: var(--yellow);
+      background: rgba(245, 158, 11, 0.04);
+    }
+    .telemetry-lbl {
+      font-size: 0.76rem;
+      color: var(--text2);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .telemetry-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+    .telemetry-sub {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    /* Alerts Panel */
+    .patient-alerts-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      max-height: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .alert-scroll {
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .p-alert-item {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--surface);
+      border-left: 3px solid var(--border);
+      font-size: 0.8rem;
+    }
+    .p-alert-item.critical { border-left-color: var(--red); background: rgba(239, 68, 68, 0.04); }
+    .p-alert-item.warning { border-left-color: var(--yellow); background: rgba(245, 158, 11, 0.04); }
+    /* Simulation Panel */
+    .sim-panel {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      border: 1px dashed var(--yellow);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .sim-control {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sim-control label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text2);
+      display: flex;
+      justify-content: space-between;
+    }
+    .sim-control input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+    .back-link {
+      color: var(--blue);
+      font-size: 0.86rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 14px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .back-link:hover {
+      color: var(--blue-dk);
+      text-decoration: underline;
+    }
+    .flash-overlay {
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius);
+      border: 2px solid var(--red);
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+      pointer-events: none;
+      animation: flashBorder 1s ease-in-out infinite alternate;
+      display: none;
+    }
+    @keyframes flashBorder {
+      from { opacity: 0.2; }
+      to { opacity: 1; }
+    }
+    @media(max-width: 1100px) {
+      .patient-container { grid-template-columns: 1fr; }
+    }
+    @media(max-width: 680px) {
+      .telemetry-row { grid-template-columns: 1fr 1fr; }
+      .patient-meta-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="fa-solid fa-droplet"></i></div>
+      <span class="logo-text">MediFlow</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" onclick="location.href='dashboard.html'"><i class="fa-solid fa-gauge-high"></i> My Patients</button>
+      <button class="nav-item" onclick="location.href='dashboard.html?openNotifs=1'"><i class="fa-solid fa-bell"></i> Dashboard Alerts</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-theme" onclick="toggleDarkMode(); handleThemeSwitch()"><i class="fa-solid fa-moon" id="themeIcon"></i> Dark Mode</button>
+      <div class="user-pill">
+        <div class="user-avatar" id="sidebarAvatar">N</div>
+        <div>
+          <div class="user-name" id="sidebarName">Nurse</div>
+          <div class="user-role" id="sidebarRole">Nurse</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+      <div class="topbar-title">
+        <h1 id="patientName">Loading Patient...</h1>
+        <p>Real-time telemetry and IV drip charting</p>
+      </div>
+      <div class="topbar-right">
+        <span style="font-size:.78rem;color:var(--green);background:rgba(34,197,94,.08);padding:6px 11px;border-radius:20px;border:1px solid rgba(34,197,94,.2);display:flex;align-items:center;gap:6px;">
+          <span class="live-dot"></span> LIVE CHART
+        </span>
+      </div>
+    </header>
+
+    <div class="page-body" style="position: relative;">
+      <!-- Flashing Critical Frame -->
+      <div class="flash-overlay" id="flashOverlay"></div>
+
+      <button class="back-link" onclick="location.href='dashboard.html'">
+        <i class="fa-solid fa-arrow-left"></i> Back to My Patients
+      </button>
+
+      <div class="patient-container">
+        
+        <!-- Left Section: Chart & Live Telemetry -->
+        <div style="display: flex; flex-direction: column; gap: 20px">
+          
+          <!-- Metadata Card -->
+          <div class="patient-meta-grid">
+            <div class="meta-item">
+              <span class="meta-lbl"><i class="fa-solid fa-bed"></i> Bed / Ward</span>
+              <span class="meta-val" id="metaBed">Loading...</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl"><i class="fa-solid fa-person-half-dress"></i> Age</span>
+              <span class="meta-val" id="metaAge">Loading...</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl"><i class="fa-solid fa-stethoscope"></i> Diagnosis</span>
+              <span class="meta-val" id="metaDiagnosis">Loading...</span>
+            </div>
+          </div>
+
+          <!-- Live Metrics Grid -->
+          <div class="telemetry-row">
+
+            <!-- Drip Rate -->
+            <div class="telemetry-card" id="cardDrip">
+              <span class="telemetry-lbl"><i class="fa-solid fa-droplet" style="color:var(--blue)"></i> Drip Rate</span>
+              <span class="telemetry-val" id="valDrip">—</span>
+              <span class="telemetry-sub">drops / min (dpm)</span>
+            </div>
+            <!-- Flow Status -->
+            <div class="telemetry-card" id="cardFlow">
+              <span class="telemetry-lbl"><i class="fa-solid fa-circle-play" style="color:var(--teal)"></i> Flow Status</span>
+              <span class="telemetry-val" id="valFlow">—</span>
+              <span class="telemetry-sub" id="subFlow">Status of infusion</span>
+            </div>
+            <!-- Backflow -->
+            <div class="telemetry-card" id="cardBlood">
+              <span class="telemetry-lbl"><i class="fa-solid fa-droplet-slash" style="color:var(--red)"></i> Blood Backflow</span>
+              <span class="telemetry-val" id="valBlood">—</span>
+              <span class="telemetry-sub" id="subBlood">Retrograde flow check</span>
+            </div>
+          </div>
+
+          <!-- Main Live Graph -->
+          <div class="main-monitor-card">
+            <h2 style="font-size: 1rem; font-weight: 700; color: var(--text)">
+              <i class="fa-solid fa-chart-line" style="color:var(--blue); margin-right: 8px"></i> Infusion Telemetry Graph
+            </h2>
+            <div class="chart-container">
+              <canvas id="patientLiveChart"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Section: Alerts History & Simulator Controls -->
+        <div style="display: flex; flex-direction: column; gap: 20px">
+          
+          <!-- Simulation controls -->
+          <div class="sim-panel">
+            <h2 style="font-size: 0.95rem; font-weight: 700; color: var(--yellow)">
+              <i class="fa-solid fa-satellite-dish" style="margin-right: 6px"></i> Telemetry Simulator Controls
+            </h2>
+            <p style="font-size: 0.74rem; color: var(--text2)">
+              Hardware not connected? Drag sliders to test alerts, charts, and trigger alarms!
+            </p>
+
+
+
+            <div class="sim-control">
+              <label><span>Drip Rate:</span><span id="simValDrip">40 dpm</span></label>
+              <input type="range" id="simDrip" min="0" max="100" value="40"/>
+            </div>
+
+            <div class="sim-control" style="flex-direction: row; justify-content: space-between; align-items: center; margin-top: 4px;">
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text2)">Infusion Running:</span>
+              <input type="checkbox" id="simRunning" checked style="width: 18px; height: 18px; cursor: pointer;"/>
+            </div>
+
+            <div class="sim-control" style="flex-direction: row; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text2); color: var(--red)"><i class="fa-solid fa-circle-exclamation"></i> Blood Backflow:</span>
+              <input type="checkbox" id="simBlood" style="width: 18px; height: 18px; cursor: pointer;"/>
+            </div>
+          </div>
+
+          <!-- Alert Logs Card -->
+          <div class="patient-alerts-card">
+            <h2 style="font-size: 1rem; font-weight: 700; color: var(--text)">
+              <i class="fa-solid fa-clock-rotate-left" style="color:var(--red); margin-right: 8px"></i> Alarm Alert Logs
+            </h2>
+            <div class="alert-scroll" id="patientAlertsLog">
+              <p style="text-align: center; color: var(--muted); font-size: 0.8rem; padding: 20px 0;">Loading history...</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><i class="fa-solid fa-circle-exclamation" id="toastIcon"></i></div>
+  <div class="toast-body">
+    <strong id="toastTitle">Alert</strong>
+    <p id="toastMsg"></p>
+  </div>
+  <button class="toast-close" onclick="closeToast()"><i class="fa-solid fa-xmark"></i></button>
+</div>
+
+<!-- Audio element (fallback if browser block) -->
+<div style="display:none" id="soundPlaceholder"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/thingspeak.js"></script>
+<script src="../js/charts.js"></script>
+<script src="../js/alerts.js"></script>
+
+<script>
+  requireAuth('nurse');
+  initDarkMode();
+  fillSidebarUser();
+
+  // Parse patient ID
+  const urlParams = new URLSearchParams(window.location.search);
+  const patientId = parseInt(urlParams.get('id'));
+
+  if (!patientId) {
+    alert('No patient ID specified. Returning to dashboard.');
+    window.location.href = 'dashboard.html';
+  }
+
+  let patient = null;
+  let chart = null;
+  let updateTimer = null;
+  let activeAlarms = {}; // Tracks triggered alarms to prevent spam
+  let lastSavedTime = 0;
+
+  // Initialize page
+  async function initPage() {
+    // 1. Fetch patient meta
+    const res = await apiGetPatient(patientId);
+    if (!res.success) {
+      alert('Failed to load patient: ' + res.message);
+      window.location.href = 'dashboard.html';
+      return;
+    }
+    patient = res.patient;
+
+    // 2. Populate identity info
+    document.getElementById('patientName').textContent = patient.name;
+    document.getElementById('metaBed').innerHTML = `<strong>Bed ${patient.bed_number}</strong> (${patient.ward || 'General'})`;
+    document.getElementById('metaAge').textContent = patient.age ? `${patient.age} yrs` : '—';
+    document.getElementById('metaDiagnosis').textContent = patient.diagnosis || 'None noted';
+
+    // 3. Setup Chart
+    chart = initPatientChart('patientLiveChart');
+
+    // 4. Fetch database reading history
+    const readingsRes = await apiGetReadings(patientId, 30);
+    if (readingsRes.success && readingsRes.readings.length > 0) {
+      loadChartHistory(chart, readingsRes.readings);
+    }
+
+    // 5. Fetch patient alert logs
+    await loadAlertLogs();
+
+    // 6. Connect simulator inputs if this channel is simulated
+    setupSimulatorDefaults();
+
+    // 7. Start live monitoring loop
+    await monitorTick();
+    clearInterval(updateTimer);
+    updateTimer = setInterval(monitorTick, 5000);
+  }
+
+  // Set default values in controls based on ThingSpeak configs
+  function setupSimulatorDefaults() {
+    const isSimulated = !patient.thingspeak_channel_id || patient.thingspeak_channel_id === '123456';
+    
+    // Sliders event listeners
+    const dSl = document.getElementById('simDrip');
+    const runChk = document.getElementById('simRunning');
+    const bChk = document.getElementById('simBlood');
+
+    dSl.addEventListener('input', (e) => {
+      document.getElementById('simValDrip').textContent = e.target.value + ' dpm';
+    });
+
+    if (!isSimulated) {
+      // If it's a real ThingSpeak, lock the sliders as they are readonly
+      document.querySelector('.sim-panel').style.borderColor = 'var(--blue)';
+      document.querySelector('.sim-panel h2').innerHTML = '<i class="fa-solid fa-satellite-dish"></i> Live Stream Connected';
+      document.querySelector('.sim-panel p').innerHTML = `Receiving live feeds from ThingSpeak <strong>Channel ${patient.thingspeak_channel_id}</strong>. Sim controls disabled.`;
+      
+      dSl.disabled = true;
+      runChk.disabled = true;
+      bChk.disabled = true;
+    }
+  }
+
+  // Main tick executed every 3 seconds
+  async function monitorTick() {
+    let telemetry = null;
+    const isSimulated = !patient.thingspeak_channel_id || patient.thingspeak_channel_id === '123456';
+
+    if (isSimulated) {
+      // 1. Gather values from UI sliders
+      const drip = parseFloat(document.getElementById('simDrip').value);
+      const flow = document.getElementById('simRunning').checked;
+      const blood = document.getElementById('simBlood').checked;
+
+      telemetry = {
+        dripRate: flow ? drip : 0,
+        flowStatus: flow && drip > 0 ? 'Running' : 'Stopped',
+        bloodDetected: blood,
+        timestamp: Date.now(),
+        isReal: false
+      };
+    } else {
+      // 2. Fetch from real ThingSpeak API
+      telemetry = await fetchThingSpeak(patient.thingspeak_channel_id, patient.thingspeak_read_key);
+    }
+
+    // 3. Format Metrics UI
+    updateMetricsUI(telemetry);
+
+    // 4. Save to Database every 30 seconds
+    const now = Date.now();
+    if (now - lastSavedTime >= 15000) {
+      await apiSaveReading({
+        patient_id: patientId,
+        drip_rate: telemetry.dripRate,
+        flow_status: telemetry.flowStatus,
+        blood_detected: telemetry.bloodDetected
+      });
+      lastSavedTime = now;
+    }
+
+    // 5. Append telemetry to Line Graph
+    const timeStr = new Date(telemetry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    appendChartPoint(chart, timeStr, 0, telemetry.dripRate, 25);
+
+    // 6. Check and Trigger Alerts
+    evalAlerts(telemetry);
+  }
+
+  // Render metrics panel cards
+  function updateMetricsUI(t) {
+    // Card elements
+    const cardDrip = document.getElementById('cardDrip');
+    const cardFlow = document.getElementById('cardFlow');
+    const cardBlood = document.getElementById('cardBlood');
+
+    // Reset card classes
+    [cardDrip, cardFlow, cardBlood].forEach(c => {
+      c.className = 'telemetry-card';
+    });
+
+    // 2. Drip Rate
+    document.getElementById('valDrip').textContent = t.dripRate.toFixed(1);
+    if (t.dripRate > 65) {
+      cardDrip.classList.add('warning');
+    }
+
+    // 3. Flow Status
+    document.getElementById('valFlow').textContent = t.flowStatus;
+    if (t.flowStatus === 'Stopped') {
+      document.getElementById('valFlow').style.color = 'var(--red)';
+      document.getElementById('subFlow').textContent = 'Infusion halted';
+      cardFlow.classList.add('danger');
+    } else {
+      document.getElementById('valFlow').style.color = 'var(--green)';
+      document.getElementById('subFlow').textContent = 'Infusing normally';
+    }
+
+    // 4. Backflow check
+    if (t.bloodDetected) {
+      document.getElementById('valBlood').textContent = 'BLOOD';
+      document.getElementById('valBlood').style.color = 'var(--red)';
+      cardBlood.classList.add('danger');
+      document.getElementById('subBlood').innerHTML = '🚨 <strong>BACKFLOW DETECTED!</strong>';
+    } else {
+      document.getElementById('valBlood').textContent = 'CLEAR';
+      document.getElementById('valBlood').style.color = 'var(--green)';
+      document.getElementById('subBlood').textContent = 'No backflow';
+    }
+
+
+  }
+
+  // Evaluates values and logs to database/toast
+  async function evalAlerts(t) {
+    const alertDefs = [
+      { key: 'backflow', condition: t.bloodDetected, type: 'backflow', title: '🩸 Backflow Alarm!', msg: `Blood backflow detected for ${patient.name}!`, level: 'critical' },
+      { key: 'stopped', condition: t.flowStatus === 'Stopped', type: 'drip_stopped', title: '🚫 Infusion Stopped!', msg: `IV flow has stopped for ${patient.name}!`, level: 'critical' }
+    ];
+
+    let hasCritical = false;
+
+    for (const def of alertDefs) {
+      if (def.condition) {
+        if (def.level === 'critical') hasCritical = true;
+
+        if (!activeAlarms[def.key]) {
+          activeAlarms[def.key] = true;
+          await triggerAlarm(def, t);
+        }
+      } else {
+        // Clear active block
+        delete activeAlarms[def.key];
+      }
+    }
+
+    // Toggle flashing frame overlay
+    document.getElementById('flashOverlay').style.display = hasCritical ? 'block' : 'none';
+  }
+
+  // Fires actual trigger
+  async function triggerAlarm(def, telemetry) {
+    // Sound beep
+    if (def.level === 'critical') {
+      playBeep(880, 0.7);
+      setTimeout(() => playBeep(660, 0.6), 300);
+    } else {
+      playBeep(520, 0.4);
+    }
+
+    // Toast alert
+    showToast(def.title, def.msg, def.level);
+
+    // Save alert to database
+    const res = await apiSaveAlert({
+      patient_id: patientId,
+      alert_type: def.type,
+      message: def.msg,
+      drip_rate: telemetry.dripRate
+    });
+
+    if (res.success) {
+      // Reload logs
+      await loadAlertLogs();
+    }
+  }
+
+  // Load patient specific alerts
+  async function loadAlertLogs() {
+    const res = await apiGetPatientAlerts(patientId, 15);
+    const scrollBox = document.getElementById('patientAlertsLog');
+    
+    if (res.success) {
+      if (res.alerts.length === 0) {
+        scrollBox.innerHTML = `<p style="text-align: center; color: var(--muted); font-size: 0.8rem; padding: 20px 0;">No alarms logged for this patient.</p>`;
+        return;
+      }
+
+      scrollBox.innerHTML = res.alerts.map(a => {
+        const cfg = getAlertConfig(a.alert_type);
+        const alertClass = a.alert_type === 'bottle_low' ? 'warning' : 'critical';
+        return `
+          <div class="p-alert-item ${alertClass}">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2px">
+              <strong style="${cfg.style}">${cfg.label}</strong>
+              <small style="color: var(--muted); font-size: 0.72rem;">${formatAlertTime(a.created_at)}</small>
+            </div>
+            <div style="color: var(--text); font-size: 0.78rem;">${a.message}</div>
+            <div style="color: var(--muted); font-size: 0.7rem; margin-top: 3px;">
+              Infusion state: Rate ${a.drip_rate.toFixed(1)} dpm
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      scrollBox.innerHTML = `<p style="text-align: center; color: var(--red); font-size: 0.8rem;">Failed to load logs.</p>`;
+    }
+  }
+
+  // Handle graph re-render on dark/light switch
+  function handleThemeSwitch() {
+    if (chart) {
+      setTimeout(() => updateChartTheme(chart), 100);
+    }
+  }
+
+  initPage();
+</script>
+</body>
+</html>

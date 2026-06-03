@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MediFlow — Manage Nurses</title>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div class="page-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="fa-solid fa-droplet"></i></div>
+      <span class="logo-text">MediFlow</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="location.href='dashboard.html'"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+      <button class="nav-item active" onclick="location.href='nurses.html'"><i class="fa-solid fa-user-nurse"></i> Nurses</button>
+      <button class="nav-item" onclick="location.href='patients.html'"><i class="fa-solid fa-bed-pulse"></i> Patients</button>
+      <button class="nav-item" onclick="location.href='alerts.html'"><i class="fa-solid fa-bell"></i> Alerts</button>
+      <button class="nav-item" onclick="location.href='reports.html'"><i class="fa-solid fa-file-invoice"></i> Reports</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-theme" onclick="toggleDarkMode()"><i class="fa-solid fa-moon" id="themeIcon"></i> Dark Mode</button>
+      <div class="user-pill">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div><div class="user-name" id="sidebarName">Admin</div><div class="user-role" id="sidebarRole">Administrator</div></div>
+      </div>
+      <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+      <div class="topbar-title"><h1>Manage Nurses</h1><p>Add, edit or remove nurse accounts</p></div>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="openAddModal()">
+          <i class="fa-solid fa-plus"></i> Add Nurse
+        </button>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Name</th><th>Email</th><th>Employee ID</th><th>Ward</th><th>Phone</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="nurseTable">
+              <tr><td colspan="7"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="nurseModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modalTitle">Add New Nurse</h3>
+      <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="editNurseId"/>
+    <div class="form-group"><label>Full Name *</label><input type="text" id="fName" placeholder="e.g. Sarah Johnson"/></div>
+    <div class="form-group"><label>Email *</label><input type="email" id="fEmail" placeholder="nurse@hospital.com"/></div>
+    <div class="form-group"><label>Password <span id="pwdNote" style="color:var(--muted);font-weight:400">(required for new nurse)</span></label><input type="password" id="fPassword" placeholder="Min 6 characters"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label>Employee ID</label><input type="text" id="fEmpId" placeholder="N001"/></div>
+      <div class="form-group"><label>Phone</label><input type="text" id="fPhone" placeholder="9876543210"/></div>
+    </div>
+    <div class="form-group"><label>Ward</label><input type="text" id="fWard" placeholder="e.g. ICU Ward 3B"/></div>
+    <div id="modalError" style="color:#dc2626;font-size:.83rem;margin-bottom:10px;display:none"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" style="background:var(--surface);color:var(--text2)" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNurse()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><i class="fa-solid fa-check"></i></div>
+  <div class="toast-body"><strong id="toastTitle">Done</strong><p id="toastMsg"></p></div>
+  <button class="toast-close" onclick="closeToast()"><i class="fa-solid fa-xmark"></i></button>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script>
+  requireAuth('admin');
+  initDarkMode();
+  fillSidebarUser();
+
+  let nurses = [];
+
+  async function loadNurses() {
+    const res = await apiGetNurses();
+    if (!res.success) return;
+    nurses = res.nurses;
+    renderTable();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('nurseTable');
+    if (nurses.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-user-nurse"></i><p>No nurses added yet. Click "Add Nurse" to get started.</p></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = nurses.map((n, i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td><strong>${n.name}</strong></td>
+        <td>${n.email}</td>
+        <td>${n.employee_id||'—'}</td>
+        <td>${n.ward||'—'}</td>
+        <td>${n.phone||'—'}</td>
+        <td style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-green" onclick="openEditModal(${n.nurse_id})"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="deleteNurse(${n.nurse_id},'${n.name}')"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add New Nurse';
+    document.getElementById('editNurseId').value = '';
+    document.getElementById('pwdNote').textContent = '(required for new nurse)';
+    ['fName','fEmail','fPassword','fEmpId','fPhone','fWard'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('modalError').style.display = 'none';
+    document.getElementById('nurseModal').classList.add('open');
+  }
+
+  function openEditModal(id) {
+    const n = nurses.find(x => x.nurse_id === id);
+    if (!n) return;
+    document.getElementById('modalTitle').textContent = 'Edit Nurse';
+    document.getElementById('editNurseId').value = id;
+    document.getElementById('pwdNote').textContent = '(leave blank to keep current)';
+    document.getElementById('fName').value    = n.name;
+    document.getElementById('fEmail').value   = n.email;
+    document.getElementById('fPassword').value = '';
+    document.getElementById('fEmpId').value   = n.employee_id||'';
+    document.getElementById('fPhone').value   = n.phone||'';
+    document.getElementById('fWard').value    = n.ward||'';
+    document.getElementById('modalError').style.display = 'none';
+    document.getElementById('nurseModal').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('nurseModal').classList.remove('open');
+  }
+
+  async function saveNurse() {
+    const id       = document.getElementById('editNurseId').value;
+    const name     = document.getElementById('fName').value.trim();
+    const email    = document.getElementById('fEmail').value.trim();
+    const password = document.getElementById('fPassword').value;
+    const emp_id   = document.getElementById('fEmpId').value.trim();
+    const phone    = document.getElementById('fPhone').value.trim();
+    const ward     = document.getElementById('fWard').value.trim();
+    const errEl    = document.getElementById('modalError');
+
+    if (!name || !email) { errEl.textContent='Name and email are required.'; errEl.style.display='block'; return; }
+    if (!id && !password) { errEl.textContent='Password is required for new nurse.'; errEl.style.display='block'; return; }
+
+    errEl.style.display = 'none';
+    let res;
+    if (id) {
+      res = await apiUpdateNurse(id, { name, employee_id:emp_id, phone, ward, password:password||undefined });
+    } else {
+      res = await apiAddNurse({ name, email, password, employee_id:emp_id, phone, ward });
+    }
+
+    if (res.success) {
+      closeModal();
+      showToast('Success', res.message, 'success');
+      loadNurses();
+    } else {
+      errEl.textContent = res.message;
+      errEl.style.display = 'block';
+    }
+  }
+
+  async function deleteNurse(id, name) {
+    if (!confirm(`Delete nurse "${name}"? This will also remove their login access.`)) return;
+    const res = await apiDeleteNurse(id);
+    if (res.success) {
+      showToast('Deleted', res.message, 'info');
+      loadNurses();
+    } else {
+      showToast('Error', res.message, 'critical');
+    }
+  }
+
+  loadNurses();
+</script>
+</body>
+</html>

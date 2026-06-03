@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MediFlow — Hospital Alerts Log</title>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .filter-panel {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      box-shadow: var(--shadow);
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .filter-group label {
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .filter-control {
+      padding: 8px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .filter-control:focus {
+      border-color: var(--blue);
+    }
+    .badge-alert-type {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+<div class="page-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="fa-solid fa-droplet"></i></div>
+      <span class="logo-text">MediFlow</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item" onclick="location.href='dashboard.html'"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+      <button class="nav-item" onclick="location.href='nurses.html'"><i class="fa-solid fa-user-nurse"></i> Nurses</button>
+      <button class="nav-item" onclick="location.href='patients.html'"><i class="fa-solid fa-bed-pulse"></i> Patients</button>
+      <button class="nav-item active" onclick="location.href='alerts.html'"><i class="fa-solid fa-bell"></i> Alerts</button>
+      <button class="nav-item" onclick="location.href='reports.html'"><i class="fa-solid fa-file-invoice"></i> Reports</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-theme" onclick="toggleDarkMode()"><i class="fa-solid fa-moon" id="themeIcon"></i> Dark Mode</button>
+      <div class="user-pill">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div>
+          <div class="user-name" id="sidebarName">Admin</div>
+          <div class="user-role" id="sidebarRole">Administrator</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+      <div class="topbar-title">
+        <h1>Hospital Alerts Log</h1>
+        <p>Central real-time emergency triage dashboard</p>
+      </div>
+      <div class="topbar-right">
+        <span style="font-size:.78rem;color:var(--green);background:rgba(34,197,94,.08);padding:6px 11px;border-radius:20px;border:1px solid rgba(34,197,94,.2);display:flex;align-items:center;gap:6px;">
+          <span class="live-dot"></span> System Online
+        </span>
+      </div>
+    </header>
+
+    <div class="page-body">
+      
+      <!-- Stats Summary -->
+      <div class="summary-grid" style="margin-bottom: 20px">
+        <div class="summary-card" style="--accent:#ef4444">
+          <div class="sc-icon" style="background:rgba(239,68,68,.12);color:#ef4444"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div><div class="sc-label">Critical Incidents</div><div class="sc-value" id="statCritical">—</div></div>
+        </div>
+        <div class="summary-card" style="--accent:#f59e0b">
+          <div class="sc-icon" style="background:rgba(245,158,11,.12);color:#f59e0b"><i class="fa-solid fa-bell"></i></div>
+          <div><div class="sc-label">Warnings Logged</div><div class="sc-value" id="statWarning">—</div></div>
+        </div>
+        <div class="summary-card" style="--accent:#1d6ef5">
+          <div class="sc-icon" style="background:rgba(29,110,245,.12);color:#1d6ef5"><i class="fa-solid fa-history"></i></div>
+          <div><div class="sc-label">Total Logs (Last 100)</div><div class="sc-value" id="statTotal">—</div></div>
+        </div>
+        <div class="summary-card" style="--accent:#22c55e">
+          <div class="sc-icon" style="background:rgba(34,197,94,.12);color:#22c55e"><i class="fa-solid fa-shield-halved"></i></div>
+          <div><div class="sc-label">Active Monitoring</div><div class="sc-value" id="statMonitoring">Online</div></div>
+        </div>
+      </div>
+
+      <!-- Filters Panel -->
+      <div class="filter-panel">
+        <div class="filter-group" style="flex: 1; min-width: 200px">
+          <label>Search Patient Name</label>
+          <input type="text" id="filterSearch" placeholder="Type to filter patients..." class="filter-control" oninput="applyFilters()"/>
+        </div>
+        
+        <div class="filter-group">
+          <label>Filter Alert Type</label>
+          <select id="filterType" class="filter-control" onchange="applyFilters()">
+            <option value="all">— Show All Types —</option>
+            <option value="backflow">🩸 Blood Backflow</option>
+            <option value="critically_empty">💧 Bottle Empty</option>
+            <option value="bottle_low">⚠️ Bottle Low</option>
+            <option value="drip_stopped">🚫 Drip Stopped</option>
+          </select>
+        </div>
+
+        <div class="filter-group" style="align-self: flex-end">
+          <button class="btn" style="background: var(--surface); color: var(--text2); border: 1.5px solid var(--border)" onclick="resetFilters()">
+            <i class="fa-solid fa-rotate-left"></i> Reset Filters
+          </button>
+        </div>
+      </div>
+
+      <!-- Central Logs Grid -->
+      <div class="card">
+        <div class="sec-header">
+          <h2><i class="fa-solid fa-list-check" style="color:var(--blue);margin-right:8px"></i>Alert Entries</h2>
+          <button class="btn btn-sm btn-danger" onclick="clearAllLogs()" id="btnClear" style="display:none">
+            <i class="fa-solid fa-trash-can"></i> Flush All Logs
+          </button>
+        </div>
+        
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Patient Name</th>
+                <th>Bed / Ward</th>
+                <th>Alert Type</th>
+                <th>Telemetry Metrics</th>
+                <th>Alert Message</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="alertsTableBody">
+              <tr><td colspan="7"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><i class="fa-solid fa-check"></i></div>
+  <div class="toast-body">
+    <strong id="toastTitle">Success</strong>
+    <p id="toastMsg"></p>
+  </div>
+  <button class="toast-close" onclick="closeToast()"><i class="fa-solid fa-xmark"></i></button>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/alerts.js"></script>
+
+<script>
+  requireAuth('admin');
+  initDarkMode();
+  fillSidebarUser();
+
+  let allAlerts = [];
+
+  // Fetch all alerts
+  async function loadAlerts() {
+    const res = await apiGetAlerts(100);
+    if (res.success) {
+      allAlerts = res.alerts;
+      renderStats();
+      applyFilters();
+    } else {
+      document.getElementById('alertsTableBody').innerHTML = `
+        <tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i><p>Failed to load alert database logs. Check backend status.</p></div></td></tr>
+      `;
+    }
+  }
+
+  // Calculate and display alert stats counts
+  function renderStats() {
+    const total = allAlerts.length;
+    const critical = allAlerts.filter(a => a.alert_type !== 'bottle_low').length;
+    const warning = allAlerts.filter(a => a.alert_type === 'bottle_low').length;
+
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statCritical').textContent = critical;
+    document.getElementById('statWarning').textContent = warning;
+  }
+
+  // Render lists into rows
+  function renderTable(alerts) {
+    const tbody = document.getElementById('alertsTableBody');
+
+    if (alerts.length === 0) {
+      tbody.innerHTML = `
+        <tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-bell-slash"></i><p>No alert logs found matching criteria.</p></div></td></tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = alerts.map(a => {
+      const typeHTML = getAlertBadgeHTML(a.alert_type);
+      return `
+        <tr>
+          <td style="white-space: nowrap"><strong>${formatAlertTime(a.created_at)}</strong></td>
+          <td><strong>${a.patient_name}</strong></td>
+          <td><span class="badge badge-nurse">Bed ${a.bed_number || '—'}</span></td>
+          <td>${typeHTML}</td>
+          <td>
+            <div style="font-size:0.78rem">Drip Rate: <strong>${a.drip_rate !== null ? a.drip_rate.toFixed(1) + ' dpm' : '—'}</strong></div>
+          </td>
+          <td style="color: var(--text2); max-width: 250px">${a.message || '—'}</td>
+          <td>
+            <button class="btn btn-sm btn-danger" onclick="deleteAlertLog(${a.id})" title="Dismiss Log">
+              <i class="fa-solid fa-check"></i> Resolve
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Filtering system
+  function applyFilters() {
+    const searchVal = document.getElementById('filterSearch').value.toLowerCase().trim();
+    const typeVal   = document.getElementById('filterType').value;
+
+    const filtered = allAlerts.filter(a => {
+      const matchesSearch = !searchVal || a.patient_name.toLowerCase().includes(searchVal);
+      const matchesType   = typeVal === 'all' || a.alert_type === typeVal;
+      return matchesSearch && matchesType;
+    });
+
+    renderTable(filtered);
+  }
+
+  function resetFilters() {
+    document.getElementById('filterSearch').value = '';
+    document.getElementById('filterType').value = 'all';
+    applyFilters();
+  }
+
+  // Dismiss a specific log
+  async function deleteAlertLog(id) {
+    if (!confirm('Resolve and clear this alarm record? It will be permanently removed from the system.')) return;
+    
+    const res = await apiDeleteAlert(id);
+    if (res.success) {
+      showToast('Log Cleared', 'Alert entry resolved and removed.', 'success');
+      loadAlerts();
+    } else {
+      showToast('Error', res.message || 'Could not remove entry', 'critical');
+    }
+  }
+
+  loadAlerts();
+</script>
+</body>
+</html>
